@@ -141,9 +141,13 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+<<<<<<< HEAD
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+=======
+GEMINI_API_KEY = "*******************"
+>>>>>>> 4a9a63bea6471f601cebcef19dd88811b0289dd0
