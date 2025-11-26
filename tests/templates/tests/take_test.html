@@ -70,8 +70,18 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     (function () {
+        // Render Markdown for Questions
+        document.querySelectorAll('.card-text').forEach(el => {
+            el.innerHTML = marked.parse(el.textContent);
+            // Add Bootstrap table classes to any tables generated
+            el.querySelectorAll('table').forEach(table => {
+                table.classList.add('table', 'table-bordered', 'table-striped', 'mt-2', 'mb-2');
+            });
+        });
+
         // Simple Timer Logic
         let testDuration = parseInt("{{ test.duration|default:0 }}", 10) * 60;
         const display = document.querySelector('#time-remaining');

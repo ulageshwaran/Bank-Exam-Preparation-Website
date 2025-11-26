@@ -10,9 +10,9 @@ class MockTest(models.Model):
         ('Hard', 'Hard'),
     ]
     EXAM_TYPE_CHOICES = [
-        ('SBI', 'SBI PO/Clerk'),
-        ('IBPS', 'IBPS PO/Clerk'),
-        ('RRB', 'RRB PO/Clerk'),
+        ('SBI', 'SBI Clerk'),
+        ('IBPS', 'IBPS Clerk'),
+        ('RRB', 'RRB Clerk'),
     ]
     STAGE_CHOICES = [
         ('Prelims', 'Prelims'),

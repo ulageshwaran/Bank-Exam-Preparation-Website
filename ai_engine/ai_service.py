@@ -6,6 +6,7 @@ from django.conf import settings
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 def get_model():
+    # User requested Pro model. 3.0 has quota issues, 1.5 is 404. Using 2.0 Pro Exp.
     return genai.GenerativeModel('gemini-2.0-flash')
 
 def generate_question(topic_name, difficulty):

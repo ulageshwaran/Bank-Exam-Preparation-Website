@@ -83,7 +83,16 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+    // Render Markdown for Questions
+    document.querySelectorAll('.card-text').forEach(el => {
+        el.innerHTML = marked.parse(el.textContent);
+        el.querySelectorAll('table').forEach(table => {
+            table.classList.add('table', 'table-bordered', 'table-striped', 'mt-2', 'mb-2');
+        });
+    });
+
     // Handle Option Selection
     document.querySelectorAll('.option-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -115,7 +124,11 @@
                 .then(response => response.json())
                 .then(data => {
                     feedbackArea.style.display = 'block';
-                    explanationText.textContent = data.explanation || 'No explanation provided.';
+                    // Parse markdown in explanation
+                    explanationText.innerHTML = marked.parse(data.explanation || 'No explanation provided.');
+                    explanationText.querySelectorAll('table').forEach(table => {
+                        table.classList.add('table', 'table-bordered', 'table-striped', 'mt-2', 'mb-2');
+                    });
 
                     if (data.is_correct) {
                         alertBox.className = 'alert alert-success';

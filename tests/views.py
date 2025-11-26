@@ -165,3 +165,16 @@ def test_result(request, attempt_id):
 def test_history(request):
     attempts = UserTestAttempt.objects.filter(user=request.user).order_by('-completed_at')
     return render(request, 'tests/test_history.html', {'attempts': attempts})
+
+@login_required
+def delete_test(request, test_id):
+    test = get_object_or_404(MockTest, id=test_id)
+    # Optional: Check if the user owns the test or is an admin
+    # if test.created_by != request.user: ...
+    
+    if request.method == 'POST':
+        test.delete()
+        messages.success(request, 'Test deleted successfully.')
+        return redirect('test_list')
+        
+    return redirect('test_list')

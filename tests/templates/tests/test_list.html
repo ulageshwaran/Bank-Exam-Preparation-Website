@@ -15,15 +15,22 @@
             <div class="card-body">
                 <h5 class="card-title">{{ test.title }}</h5>
                 <p class="card-text text-muted">
-                    {{ test.exam.name }} • {{ test.duration }} Mins
+                    {{ test.duration }} Mins
                 </p>
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <span class="badge bg-secondary">{{ test.test_questions.count }} Questions</span>
                     <a href="{% url 'take_test' test.id %}" class="btn btn-outline-primary">Start Test</a>
                 </div>
             </div>
-            <div class="card-footer text-muted">
-                Created: {{ test.created_at|date:"M d, Y" }}
+            <div class="card-footer text-muted d-flex justify-content-between align-items-center">
+                <span>Created: {{ test.created_at|date:"M d, Y" }}</span>
+                <form method="POST" action="{% url 'delete_test' test.id %}"
+                    onsubmit="return confirm('Are you sure you want to delete this test?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </form>
             </div>
         </div>
     </div>
