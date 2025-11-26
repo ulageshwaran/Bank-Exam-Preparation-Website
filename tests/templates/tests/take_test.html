@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4 py-3 bg-white border-bottom sticky-top"
+        style="z-index: 1000;">
+        <h2>{{ test.title }}</h2>
+        <div class="h4 text-danger mb-0" id="timer">
+            <i class="bi bi-stopwatch"></i> <span id="time-remaining">{{ test.duration }}:00</span>
+        </div>
+    </div>
+
+    <form method="POST" id="test-form">
+        {% csrf_token %}
+
+        {% for tq in test_questions %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Question {{ forloop.counter }}</h5>
+                <p class="card-text">{{ tq.question.text }}</p>
+
+                <div class="options-list">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question_{{ tq.question.id }}"
+                            id="q{{ tq.question.id }}_A" value="A">
+                        <label class="form-check-label" for="q{{ tq.question.id }}_A">
+                            A) {{ tq.question.option_a }}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question_{{ tq.question.id }}"
+                            id="q{{ tq.question.id }}_B" value="B">
+                        <label class="form-check-label" for="q{{ tq.question.id }}_B">
+                            B) {{ tq.question.option_b }}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question_{{ tq.question.id }}"
+                            id="q{{ tq.question.id }}_C" value="C">
+                        <label class="form-check-label" for="q{{ tq.question.id }}_C">
+                            C) {{ tq.question.option_c }}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question_{{ tq.question.id }}"
+                            id="q{{ tq.question.id }}_D" value="D">
+                        <label class="form-check-label" for="q{{ tq.question.id }}_D">
+                            D) {{ tq.question.option_d }}
+                        </label>
+                    </div>
+                    {% if tq.question.option_e %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question_{{ tq.question.id }}"
+                            id="q{{ tq.question.id }}_E" value="E">
+                        <label class="form-check-label" for="q{{ tq.question.id }}_E">
+                            E) {{ tq.question.option_e }}
+                        </label>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="d-grid gap-2 mb-5">
+            <button type="submit" class="btn btn-primary btn-lg">Submit Test</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        // Simple Timer Logic
+        let testDuration = parseInt("{{ test.duration|default:0 }}", 10) * 60;
+        const display = document.querySelector('#time-remaining');
+
+        const timer = setInterval(function () {
+            let minutes = parseInt(testDuration / 60, 10);
+            let seconds = parseInt(testDuration % 60, 10);
+
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+            display.textContent = minutes + ":" + seconds;
+
+            if (--testDuration < 0) {
+                clearInterval(timer);
+                alert("Time is up! Submitting your test.");
+                document.getElementById('test-form').submit();
+            }
+        }, 1000);
+    })();
+</script>
+{% endblock %}

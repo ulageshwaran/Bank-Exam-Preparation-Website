@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'practice_home' %}">Subjects</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'topic_list' topic.subject.slug %}">{{ topic.subject.name }}</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">{{ topic.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ topic.name }} Practice</h2>
+    <button id="generate-btn" class="btn btn-outline-primary" data-topic-id="{{ topic.id }}">
+        <i class="bi bi-robot"></i> Generate AI Question
+    </button>
+</div>
+
+{% if questions %}
+{% for question in questions %}
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">Question {{ forloop.counter }}</h5>
+        <p class="card-text lead">{{ question.text }}</p>
+
+        <form class="question-form" data-question-id="{{ question.id }}">
+            <div class="list-group mb-3">
+                {% if question.option_a %}
+                <button type="button" class="list-group-item list-group-item-action option-btn" data-option="A">
+                    <span class="fw-bold me-2">A.</span> {{ question.option_a }}
+                </button>
+                {% endif %}
+                {% if question.option_b %}
+                <button type="button" class="list-group-item list-group-item-action option-btn" data-option="B">
+                    <span class="fw-bold me-2">B.</span> {{ question.option_b }}
+                </button>
+                {% endif %}
+                {% if question.option_c %}
+                <button type="button" class="list-group-item list-group-item-action option-btn" data-option="C">
+                    <span class="fw-bold me-2">C.</span> {{ question.option_c }}
+                </button>
+                {% endif %}
+                {% if question.option_d %}
+                <button type="button" class="list-group-item list-group-item-action option-btn" data-option="D">
+                    <span class="fw-bold me-2">D.</span> {{ question.option_d }}
+                </button>
+                {% endif %}
+                {% if question.option_e %}
+                <button type="button" class="list-group-item list-group-item-action option-btn" data-option="E">
+                    <span class="fw-bold me-2">E.</span> {{ question.option_e }}
+                </button>
+                {% endif %}
+            </div>
+        </form>
+
+        <div class="feedback-area mt-3" style="display: none;">
+            <div class="alert" role="alert"></div>
+            <div class="explanation card card-body bg-light mt-2">
+                <h6><i class="bi bi-lightbulb"></i> Explanation:</h6>
+                <p class="explanation-text mb-0"></p>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer text-muted small">
+        {% if question.is_ai_generated %}
+        <span class="badge bg-info text-dark"><i class="bi bi-stars"></i> AI Generated</span>
+        {% endif %}
+        Difficulty: {{ question.difficulty }}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="text-center py-5">
+    <div class="mb-3">
+        <i class="bi bi-journal-text text-muted" style="font-size: 3rem;"></i>
+    </div>
+    <h4>No questions yet</h4>
+    <p class="text-muted">Click the "Generate AI Question" button to start practicing!</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle Option Selection
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const form = this.closest('.question-form');
+            const questionId = form.dataset.questionId;
+            const selectedOption = this.dataset.option;
+            const feedbackArea = form.nextElementSibling;
+            const alertBox = feedbackArea.querySelector('.alert');
+            const explanationText = feedbackArea.querySelector('.explanation-text');
+
+            // Disable all options in this question
+            form.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+            // Highlight selected
+            this.classList.add('active');
+
+            // Send to API
+            fetch('{% url "check_answer" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    question_id: questionId,
+                    selected_option: selectedOption
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    feedbackArea.style.display = 'block';
+                    explanationText.textContent = data.explanation || 'No explanation provided.';
+
+                    if (data.is_correct) {
+                        alertBox.className = 'alert alert-success';
+                        alertBox.innerHTML = '<i class="bi bi-check-circle-fill"></i> <strong>Correct!</strong> Well done.';
+                        this.classList.remove('list-group-item-action');
+                        this.classList.add('list-group-item-success');
+                    } else {
+                        alertBox.className = 'alert alert-danger';
+                        alertBox.innerHTML = `<i class="bi bi-x-circle-fill"></i> <strong>Incorrect.</strong> The correct answer was Option ${data.correct_option}.`;
+                        this.classList.remove('list-group-item-action');
+                        this.classList.add('list-group-item-danger');
+
+                        // Highlight correct answer
+                        const correctBtn = form.querySelector(`[data-option="${data.correct_option}"]`);
+                        if (correctBtn) {
+                            correctBtn.classList.add('list-group-item-success');
+                        }
+                    }
+                });
+        });
+    });
+
+    // Handle AI Generation
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function () {
+            const topicId = this.dataset.topicId;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+
+            fetch(`/practice/api/generate_question/${topicId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to generate question. Please check API key configuration.');
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-robot"></i> Generate AI Question';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred.');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-robot"></i> Generate AI Question';
+                });
+        });
+    }
+</script>
+{% endblock %}

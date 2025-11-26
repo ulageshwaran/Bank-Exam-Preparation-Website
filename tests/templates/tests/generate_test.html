@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card text-center">
+            <div class="card-body py-5">
+                <h2 class="card-title mb-4">Generate AI Mock Test</h2>
+                <p class="card-text lead mb-4">
+                    Create a full-length mock test tailored for your exam using our AI engine.
+                    Select your exam type and stage to get the exact pattern.
+                </p>
+
+                <div class="alert alert-warning mb-4">
+                    <i class="bi bi-clock-history"></i> Generation involves creating unique questions and may take 1-2
+                    minutes. Please do not refresh.
+                </div>
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="row mb-4 text-start w-75 mx-auto">
+                        <div class="col-md-6 mb-3">
+                            <label for="exam_type" class="form-label">Exam Type</label>
+                            <select class="form-select" id="exam_type" name="exam_type">
+                                <option value="SBI" selected>SBI PO/Clerk</option>
+                                <option value="IBPS">IBPS PO/Clerk</option>
+                                <option value="RRB">RRB PO/Clerk</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="stage" class="form-label">Stage</label>
+                            <select class="form-select" id="stage" name="stage">
+                                <option value="Prelims" selected>Prelims</option>
+                                <option value="Mains">Mains</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label for="difficulty" class="form-label">Difficulty Level</label>
+                            <select class="form-select" id="difficulty" name="difficulty">
+                                <option value="Easy">Easy</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg px-5" id="generate-btn">
+                        <i class="bi bi-magic"></i> Generate Mock Test
+                    </button>
+                </form>
+
+                <div id="loading-message" class="mt-4" style="display: none;">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5>Generating your test...</h5>
+                    <p class="text-muted">Creating unique questions for you.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelector('form').addEventListener('submit', function () {
+        document.getElementById('generate-btn').style.display = 'none';
+        document.getElementById('loading-message').style.display = 'block';
+    });
+</script>
+{% endblock %}

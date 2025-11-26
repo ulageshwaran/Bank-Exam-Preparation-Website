@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>My Test History</h2>
+        <a href="{% url 'generate_test' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Take New Test</a>
+    </div>
+
+    {% if attempts %}
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="ps-4">Date</th>
+                            <th scope="col">Test Title</th>
+                            <th scope="col">Difficulty</th>
+                            <th scope="col">Score</th>
+                            <th scope="col">Result</th>
+                            <th scope="col" class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attempt in attempts %}
+                        <tr>
+                            <td class="ps-4">{{ attempt.completed_at|date:"M d, Y H:i" }}</td>
+                            <td>{{ attempt.mock_test.title }}</td>
+                            <td>
+                                {% if attempt.mock_test.difficulty == 'Easy' %}
+                                <span class="badge bg-success">Easy</span>
+                                {% elif attempt.mock_test.difficulty == 'Medium' %}
+                                <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                <span class="badge bg-danger">Hard</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ attempt.score|floatformat:2 }}</strong> / {{attempt.mock_test.total_marks|floatformat:0 }}</td>
+                            <td>
+                                <span class="text-muted small">
+                                    <i class="bi bi-check-circle text-success"></i> {{ attempt.correct_count }}
+                                    <i class="bi bi-x-circle text-danger ms-2"></i> {{ attempt.wrong_count }}
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'test_result' attempt.id %}" class="btn btn-sm btn-outline-primary">
+                                    View Result
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-3">
+            <i class="bi bi-journal-x text-muted" style="font-size: 3rem;"></i>
+        </div>
+        <h4>No tests taken yet</h4>
+        <p class="text-muted">Start your preparation by taking a mock test!</p>
+        <a href="{% url 'generate_test' %}" class="btn btn-primary mt-2">Generate Mock Test</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <img src="https://via.placeholder.com/150" class="rounded-circle mb-3" alt="Profile">
+                <h5 class="card-title">{{ user.username }}</h5>
+                <p class="text-muted">{{ user.target_exam }} Aspirant</p>
+                <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-primary">Edit Profile</a>
+            </div>
+        </div>
+
+        <div class="list-group mb-4">
+            <a href="{% url 'dashboard' %}" class="list-group-item list-group-item-action active">Overview</a>
+            <a href="{% url 'test_list' %}" class="list-group-item list-group-item-action">My Tests</a>
+            <a href="{% url 'study_plan' %}" class="list-group-item list-group-item-action">Study Plan</a>
+            <a href="{% url 'analytics' %}" class="list-group-item list-group-item-action">Analytics</a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <h2 class="mb-4">Dashboard</h2>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Tests Attempted</h5>
+                        <h2 class="display-4">{{ tests_attempted }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Avg. Score</h5>
+                        <h2 class="display-4">{{ avg_score|floatformat:1 }}%</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Study Streak</h5>
+                        <h2 class="display-4">0 Days</h2> <!-- Placeholder for now -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                Recent Activity
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for attempt in recent_activity %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ attempt.mock_test.title }}</strong>
+                        <br>
+                        <small class="text-muted">{{ attempt.completed_at|date:"M d, Y H:i" }}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">Score: {{ attempt.score|floatformat:1 }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">No recent activity.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
