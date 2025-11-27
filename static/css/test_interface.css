@@ -1,0 +1,338 @@
+/* Test Interface Styles */
+
+.test-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.test-header {
+    background: #fff;
+    border-bottom: 2px solid #dee2e6;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.section-indicator {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.timer-display {
+    font-size: 1.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.timer-display.text-danger {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Question Container */
+.question-container {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    min-height: 400px;
+}
+
+.question-group-context {
+    background: #f8f9fa !important;
+    border-left: 4px solid #667eea !important;
+}
+
+.question-group-context img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.question-header {
+    margin-bottom: 1.5rem;
+}
+
+.question-text h5 {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #2d3748;
+}
+
+.options-list {
+    margin-top: 1.5rem;
+}
+
+.form-check {
+    padding: 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.form-check:hover {
+    background: #f7fafc;
+    border-color: #667eea;
+}
+
+.form-check-input:checked + .form-check-label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.form-check-input:checked ~ * {
+    background: #eef2ff;
+}
+
+/* Navigation Buttons */
+.navigation-controls {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+}
+
+.navigation-controls .btn {
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.navigation-controls .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.navigation-controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Question Palette */
+.question-palette {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.section-palette {
+    margin-bottom: 1.5rem;
+}
+
+.section-palette h6 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+    color: #4a5568;
+}
+
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+}
+
+.palette-btn {
+    aspect-ratio: 1;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.palette-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Question Status Colors */
+.palette-btn.not-visited {
+    background: #fff;
+    border-color: #cbd5e0;
+    color: #4a5568;
+}
+
+.palette-btn.answered {
+    background: #48bb78;
+    border-color: #48bb78;
+    color: #fff;
+}
+
+.palette-btn.marked {
+    background: #ed8936;
+    border-color: #ed8936;
+    color: #fff;
+}
+
+.palette-btn.current {
+    background: #667eea;
+    border-color: #667eea;
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+/* Legend */
+.palette-legend {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #e2e8f0;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.legend-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid;
+}
+
+.legend-box.not-visited {
+    background: #fff;
+    border-color: #cbd5e0;
+}
+
+.legend-box.answered {
+    background: #48bb78;
+    border-color: #48bb78;
+}
+
+.legend-box.marked {
+    background: #ed8936;
+    border-color: #ed8936;
+}
+
+.legend-box.current {
+    background: #667eea;
+    border-color: #667eea;
+}
+
+/* Summary Stats */
+.test-stats {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.test-stats .stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.test-stats .stat-item:last-child {
+    border-bottom: none;
+}
+
+.test-stats .stat-label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.test-stats .stat-value {
+    font-weight: 700;
+    color: #2d3748;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .palette-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .question-container {
+        padding: 1rem;
+    }
+    
+    .navigation-controls {
+        flex-direction: column;
+    }
+    
+    .navigation-controls .btn {
+        width: 100%;
+    }
+    
+    .question-palette {
+        position: static;
+        margin-top: 2rem;
+        max-height: none;
+    }
+}
+
+/* Markdown Content Styling */
+.question-text table {
+    width: 100%;
+    margin: 1rem 0;
+    border-collapse: collapse;
+}
+
+.question-text table th,
+.question-text table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.question-text table th {
+    background: #f7fafc;
+    font-weight: 600;
+}
+
+.question-text img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.question-text code {
+    background: #f7fafc;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.question-text pre {
+    background: #2d3748;
+    color: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.question-text pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+}
