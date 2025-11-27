@@ -7,6 +7,40 @@ from exams.models import Exam, Subject
 from practice.models import Question, Topic
 import threading
 
+# EXAM CONFIGURATIONS - Question distribution for different exam types
+EXAM_CONFIGURATIONS = {
+    'SBI': {
+        'Prelims': {
+            'duration': 60,
+            'subjects': {
+                'English Language': 30,
+                'Quantitative Aptitude': 35,
+                'Reasoning Ability': 35
+            }
+        }
+    },
+    'IBPS': {
+        'Prelims': {
+            'duration': 60,
+            'subjects': {
+                'English Language': 30,
+                'Quantitative Aptitude': 35,
+                'Reasoning Ability': 35
+            }
+        }
+    },
+    'RRB': {
+        'Prelims': {
+            'duration': 45,
+            'subjects': {
+                # RRB Clerk has FIXED 80 questions total
+                'Quantitative Aptitude': 40,
+                'Reasoning Ability': 40
+            }
+        }
+    }
+}
+
 @login_required
 def test_list(request):
     tests = MockTest.objects.all()
@@ -24,38 +58,36 @@ def generate_test_view(request):
         test = MockTest.objects.create(
             title=f"{exam_type} {stage} Mock Test {MockTest.objects.count() + 1}",
             exam=exam,
-            duration=60 if stage == 'Prelims' else 180, 
+            duration=60,  # Default, will be updated based on config
             difficulty=difficulty,
             exam_type=exam_type,
             stage=stage
         )
         
-        # Generating full questions
-        # This might take some time (approx 60-90s)
+        # Get configuration for the selected exam type and stage
+        config = EXAM_CONFIGURATIONS.get(exam_type, {}).get(stage, None)
         
-        # Default Configuration (SBI/IBPS Prelims)
-        subject_config = {
-            'English Language': 30,
-            'Quantitative Aptitude': 35,
-            'Reasoning Ability': 35
-        }
-        
-        # RRB Prelims Configuration (No English, 40/40)
-        if exam_type == 'RRB' and stage == 'Prelims':
-            subject_config = {
-                'Quantitative Aptitude': 40,
-                'Reasoning Ability': 40
-            }
-            test.duration = 45 # RRB Prelims is usually 45 mins
+        if config:
+            # Use configuration from EXAM_CONFIGURATIONS
+            test.duration = config['duration']
             test.save()
+            subject_config = config['subjects']
+        else:
+            # Fallback to default configuration if not found
+            subject_config = {
+                'English Language': 30,
+                'Quantitative Aptitude': 35,
+                'Reasoning Ability': 35
+            }
             
-        # Mains Configuration (Placeholder logic for now)
+        # Adjust difficulty for Mains
         if stage == 'Mains':
-             # Mains usually has more questions and sections (GA, Computer), 
-             # but for MVP we stick to core subjects with higher difficulty
-             difficulty = 'Hard'
-             # You might want to adjust counts here too
+            difficulty = 'Hard'
         
+        # Calculate total questions for verification
+        total_questions = sum(subject_config.values())
+        
+        # Generate questions for each subject
         for sub_name, count in subject_config.items():
             questions_data = generate_test_questions(sub_name, count, difficulty)
             
@@ -91,7 +123,7 @@ def generate_test_view(request):
                     # Link to Test
                     TestQuestion.objects.create(mock_test=test, question=question)
         
-        messages.success(request, f"Mock Test ({difficulty}) Generated Successfully!")
+        messages.success(request, f"{exam_type} {stage} Mock Test with {total_questions} questions ({difficulty}) Generated Successfully!")
         return redirect('test_list')
         
     return render(request, 'tests/generate_test.html')

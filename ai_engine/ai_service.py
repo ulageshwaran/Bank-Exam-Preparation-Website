@@ -15,7 +15,7 @@ def generate_question(topic_name, difficulty):
         return None
 
     prompt = f"""
-    Generate a multiple-choice question for a banking exam (like SBI PO) on the topic '{topic_name}'.
+    Generate a multiple-choice question for a banking exam (like RRB Clerk) on the topic '{topic_name}'.
     Difficulty: {difficulty}.
     Provide the output in JSON format with the following keys:
     - text: The question text
@@ -94,66 +94,153 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             'Word Swap', 'Phrase Replacement'
         ]
     }
+    
+    # Topic-wise question distribution for RRB Clerk (40 questions per subject)
+    # This ensures variety across different topics
+    TOPIC_DISTRIBUTION = {
+        'Quantitative Aptitude': {
+            'Data Interpretation (Table/Bar/Line)': 10,
+            'Number Series (Missing/Wrong)': 5,
+            'Simplification & Approximation': 10,
+            'Arithmetic (Profit Loss, SI/CI, Time Work)': 10,
+            'Quadratic Equations': 3,
+            'Mensuration': 1,
+            'Probability': 1
+        },
+        'Reasoning Ability': {
+            'Puzzles (Floor/Box/Day)': 10,
+            'Seating Arrangement (Circular/Linear)': 10,
+            'Syllogism': 5,
+            'Inequality': 5,
+            'Coding-Decoding': 3,
+            'Blood Relations': 3,
+            'Direction Sense': 2,
+            'Input-Output': 2
+        },
+        'English Language': {
+            'Reading Comprehension': 10,
+            'Cloze Test': 5,
+            'Error Detection': 5,
+            'Sentence Rearrangement (Para Jumbles)': 5,
+            'Fill in the Blanks': 3,
+            'Word Swap': 1,
+            'Phrase Replacement': 1
+        }
+    }
 
     # Batch generation to avoid timeouts and JSON errors
     BATCH_SIZE = 5
     all_questions = []
     
     import math
-    num_batches = math.ceil(num_questions / BATCH_SIZE)
     
-    for i in range(num_batches):
-        current_batch_size = min(BATCH_SIZE, num_questions - len(all_questions))
+    # Check if we have a specific distribution for this subject
+    if subject_name in TOPIC_DISTRIBUTION and num_questions == sum(TOPIC_DISTRIBUTION[subject_name].values()):
+        # Use the predefined distribution (for RRB Clerk 40-question subjects)
+        topic_distribution = TOPIC_DISTRIBUTION[subject_name]
         
-        # Select random sub-topics to focus on for this batch
-        available_topics = sub_topics_map.get(subject_name, ['General'])
-        selected_topics = random.sample(available_topics, min(len(available_topics), 3))
-        topics_str = ", ".join(selected_topics)
-
-        prompt = f"""
-        Act as an expert exam setter for SBI PO and IBPS PO exams.
-        Generate {current_batch_size} UNIQUE and HIGH-QUALITY multiple-choice questions for '{subject_name}'.
-        
-        CRITICAL INSTRUCTIONS:
-        1. Focus specifically on these topics: {topics_str}.
-        2. Difficulty Level: {difficulty}.
-        3. Questions must be modeled after actual previous year question papers (2020-2024).
-        4. Ensure NO repetition of question patterns.
-        5. For 'Quantitative Aptitude', include realistic data values.
-        6. For 'Reasoning', ensure puzzles are logically sound.
-        
-        Provide the output as a JSON array of objects, where each object has:
-        - text: The question text (include directions if needed)
-        - option_a: Option A
-        - option_b: Option B
-        - option_c: Option C
-        - option_d: Option D
-        - option_e: Option E
-        - correct_option: The correct option letter (A, B, C, D, or E)
-        - explanation: A detailed step-by-step explanation
-        - topic: The specific sub-topic name
-        """
-
-        try:
-            response = model.generate_content(prompt)
-            print(f"Raw AI Response (Batch {i+1}): {response.text[:100]}...") # Debugging
-            content = response.text.replace('```json', '').replace('```', '').strip()
-            
-            # Sometimes the model might return text before or after the JSON
-            start_idx = content.find('[')
-            end_idx = content.rfind(']') + 1
-            if start_idx != -1 and end_idx != -1:
-                content = content[start_idx:end_idx]
+        for topic, count in topic_distribution.items():
+            if count == 0:
+                continue
                 
-            batch_questions = json.loads(content)
-            all_questions.extend(batch_questions)
+            prompt = f"""
+            Act as an expert exam setter for RRB Clerk exams.
+            Generate {count} UNIQUE and HIGH-QUALITY multiple-choice questions for '{subject_name}' specifically on the topic '{topic}'.
             
-        except Exception as e:
-            print(f"Error generating batch {i+1}: {e}")
-            import traceback
-            traceback.print_exc()
-            # Continue to next batch even if one fails
-            continue
+            CRITICAL INSTRUCTIONS:
+            1. Topic: {topic}
+            2. Difficulty Level: {difficulty}.
+            3. Questions must be modeled after actual RRB Clerk previous year question papers (2020-2024).
+            4. Ensure NO repetition of question patterns.
+            5. For 'Quantitative Aptitude', include realistic data values.
+            6. For 'Reasoning', ensure puzzles are logically sound.
+            
+            Provide the output as a JSON array of objects, where each object has:
+            - text: The question text (include directions if needed)
+            - option_a: Option A
+            - option_b: Option B
+            - option_c: Option C
+            - option_d: Option D
+            - option_e: Option E
+            - correct_option: The correct option letter (A, B, C, D, or E)
+            - explanation: A detailed step-by-step explanation
+            - topic: The specific sub-topic name (use '{topic}')
+            """
+            
+            try:
+                response = model.generate_content(prompt)
+                print(f"Raw AI Response for {topic} ({count} questions): {response.text[:100]}...")
+                content = response.text.replace('```json', '').replace('```', '').strip()
+                
+                start_idx = content.find('[')
+                end_idx = content.rfind(']') + 1
+                if start_idx != -1 and end_idx != -1:
+                    content = content[start_idx:end_idx]
+                    
+                topic_questions = json.loads(content)
+                all_questions.extend(topic_questions)
+                
+            except Exception as e:
+                print(f"Error generating questions for topic {topic}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+    else:
+        # Fallback to batch generation with random topics (for custom question counts)
+        num_batches = math.ceil(num_questions / BATCH_SIZE)
+        
+        for i in range(num_batches):
+            current_batch_size = min(BATCH_SIZE, num_questions - len(all_questions))
+            
+            # Select random sub-topics to focus on for this batch
+            available_topics = sub_topics_map.get(subject_name, ['General'])
+            selected_topics = random.sample(available_topics, min(len(available_topics), 3))
+            topics_str = ", ".join(selected_topics)
+
+            prompt = f"""
+            Act as an expert exam setter for SBI PO and IBPS PO exams.
+            Generate {current_batch_size} UNIQUE and HIGH-QUALITY multiple-choice questions for '{subject_name}'.
+            
+            CRITICAL INSTRUCTIONS:
+            1. Focus specifically on these topics: {topics_str}.
+            2. Difficulty Level: {difficulty}.
+            3. Questions must be modeled after actual previous year question papers (2020-2024).
+            4. Ensure NO repetition of question patterns.
+            5. For 'Quantitative Aptitude', include realistic data values.
+            6. For 'Reasoning', ensure puzzles are logically sound.
+            
+            Provide the output as a JSON array of objects, where each object has:
+            - text: The question text (include directions if needed)
+            - option_a: Option A
+            - option_b: Option B
+            - option_c: Option C
+            - option_d: Option D
+            - option_e: Option E
+            - correct_option: The correct option letter (A, B, C, D, or E)
+            - explanation: A detailed step-by-step explanation
+            - topic: The specific sub-topic name
+            """
+
+            try:
+                response = model.generate_content(prompt)
+                print(f"Raw AI Response (Batch {i+1}): {response.text[:100]}...") # Debugging
+                content = response.text.replace('```json', '').replace('```', '').strip()
+                
+                # Sometimes the model might return text before or after the JSON
+                start_idx = content.find('[')
+                end_idx = content.rfind(']') + 1
+                if start_idx != -1 and end_idx != -1:
+                    content = content[start_idx:end_idx]
+                    
+                batch_questions = json.loads(content)
+                all_questions.extend(batch_questions)
+                
+            except Exception as e:
+                print(f"Error generating batch {i+1}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continue to next batch even if one fails
+                continue
             
     return all_questions
 
