@@ -145,6 +145,15 @@ def generate_test_view(request):
                                     subject=subject,
                                     order=section_order * 100 # Simple ordering logic
                                 )
+                            elif q_data.get('passage'):
+                                # Create group for Puzzle/RC text
+                                group = QuestionGroup.objects.create(
+                                    title="Directions (Study the following information carefully)",
+                                    group_type="text",
+                                    context_text=q_data.get('passage'),
+                                    subject=subject,
+                                    order=section_order * 100
+                                )
                             
                             # Create Question
                             question = Question.objects.create(

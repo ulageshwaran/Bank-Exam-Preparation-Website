@@ -11,6 +11,54 @@ def get_model():
     # User requested Pro model. 3.0 has quota issues, 1.5 is 404. Using 2.0 Pro Exp.
     return genai.GenerativeModel('gemini-2.0-flash')
 
+def generate_json_with_retry(model, prompt, retries=3):
+    """Generates content and parses JSON with retries."""
+    for attempt in range(retries):
+        try:
+            response = model.generate_content(prompt)
+            content = response.text.replace('```json', '').replace('```', '').strip()
+            
+            # Try to find the first JSON object or array
+            start_idx = -1
+            if '{' in content:
+                start_idx = content.find('{')
+            if '[' in content:
+                idx = content.find('[')
+                if start_idx == -1 or (idx != -1 and idx < start_idx):
+                    start_idx = idx
+            
+            if start_idx != -1:
+                content = content[start_idx:]
+                try:
+                    # strict=False allows control characters like newlines in strings
+                    obj, _ = json.JSONDecoder(strict=False).raw_decode(content)
+                    return obj
+                except json.JSONDecodeError:
+                    # Fallback to simple slicing if raw_decode fails (e.g. incomplete JSON)
+                    pass
+
+            # Fallback: Try manual slicing if raw_decode failed
+            if content.startswith('{') or content.find('{') != -1:
+                start_idx = content.find('{')
+                end_idx = content.rfind('}') + 1
+                if start_idx != -1 and end_idx != -1:
+                    return json.loads(content[start_idx:end_idx], strict=False)
+            
+            if content.startswith('[') or content.find('[') != -1:
+                start_idx = content.find('[')
+                end_idx = content.rfind(']') + 1
+                if start_idx != -1 and end_idx != -1:
+                    return json.loads(content[start_idx:end_idx], strict=False)
+            
+            print(f"WARNING: No valid JSON found in attempt {attempt+1}")
+            
+        except Exception as e:
+            print(f"Error in attempt {attempt+1}: {e}")
+            import traceback
+            traceback.print_exc()
+            
+    return None
+
 def generate_question(topic_name, difficulty):
     model = get_model()
     if not model:
@@ -30,27 +78,7 @@ def generate_question(topic_name, difficulty):
     - explanation: A detailed explanation of the solution
     """
 
-    try:
-        response = model.generate_content(prompt)
-        print(f"Raw AI Response: {response.text}") # Debugging
-        # Clean up response to ensure it's valid JSON
-        content = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(content)
-    except Exception as e:
-        print(f"Error generating question: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        # Debug: List available models
-        try:
-            print("Available models:")
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    print(m.name)
-        except Exception as list_err:
-            print(f"Error listing models: {list_err}")
-            
-        return None
+    return generate_json_with_retry(model, prompt)
 
 def explain_answer(question_text, user_answer, correct_answer):
     model = get_model()
@@ -137,88 +165,164 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
         # Use the predefined distribution
         topic_distribution = TOPIC_DISTRIBUTION[subject_name]
         
+        # Topics that require grouped questions (Sets of 5)
+        GROUPED_TOPICS = [
+            'Data Interpretation (Table/Bar/Line)',
+            'Reading Comprehension',
+            'Puzzles (Floor/Box/Day)',
+            'Seating Arrangement (Circular/Linear)'
+        ]
+
         for topic, count in topic_distribution.items():
             if count == 0:
                 continue
+            
+            # Check if this is a grouped topic
+            if topic in GROUPED_TOPICS:
+                # Generate in sets of 5
+                num_sets = math.ceil(count / 5)
                 
-            prompt = f"""
-            Act as an expert exam setter for RRB Clerk exams.
-            Generate {count} UNIQUE and HIGH-QUALITY multiple-choice questions for '{subject_name}' specifically on the topic '{topic}'.
-            
-            CRITICAL INSTRUCTIONS:
-            1. Topic: {topic}
-            2. Difficulty Level: {difficulty}.
-            3. Questions must be modeled after actual previous year question papers.
-            4. Ensure NO repetition of question patterns.
-            
-            SPECIAL INSTRUCTION FOR DATA INTERPRETATION:
-            If the topic involves a graph, chart, or TABLE (Line Graph, Bar Chart, Pie Chart, Table), you MUST provide structured data for rendering it.
-            DO NOT describe the data in the 'text' field (e.g., do not say "Imagine a table...").
-            Instead, put the data details ONLY in the 'chart_data' field.
-            
-            Provide the output as a JSON array of objects, where each object has:
-            - text: The question text (include directions if needed, but NO chart/table description)
-            - option_a: Option A
-            - option_b: Option B
-            - option_c: Option C
-            - option_d: Option D
-            - option_e: Option E
-            - correct_option: The correct option letter (A, B, C, D, or E)
-            - explanation: A detailed step-by-step explanation
-            - topic: The specific sub-topic name (use '{topic}')
-            - chart_data: (OPTIONAL, ONLY for graphs/charts/tables) A JSON object with:
-                - type: "bar", "line", "pie", or "table"
-                - title: Title of the chart or table
-                
-                # IF TYPE IS "bar", "line", or "pie":
-                - labels: Array of X-axis labels (e.g., ["Jan", "Feb", "Mar"])
-                - datasets: Array of objects, each with:
-                    - label: Dataset label (e.g., "Sales")
-                    - data: Array of numbers corresponding to labels
+                for set_idx in range(num_sets):
+                    questions_in_set = min(5, count - (set_idx * 5))
+                    if questions_in_set <= 0: break
+
+                    # Determine chart type for Data Interpretation
+                    di_instruction = ""
+                    chart_json_template = '"chart_data": null'
                     
-                # IF TYPE IS "table":
-                - headers: Array of column headers (e.g., ["Year", "Sales", "Profit"])
-                - rows: Array of arrays, where each inner array is a row of data (e.g., [["2020", "100", "20"], ["2021", "150", "30"]])
-            
-            EXAMPLE JSON OBJECT:
-            {{
-                "text": "What is the difference between sales in Jan and Feb?",
-                "option_a": "10",
-                "option_b": "20",
-                "option_c": "30",
-                "option_d": "40",
-                "option_e": "50",
-                "correct_option": "A",
-                "explanation": "Jan: 100, Feb: 110. Diff = 10.",
-                "topic": "Data Interpretation",
-                "chart_data": {{
-                    "type": "bar",
-                    "title": "Monthly Sales",
-                    "labels": ["Jan", "Feb", "Mar"],
-                    "datasets": [{{"label": "Sales", "data": [100, 110, 120]}}]
-                }}
-            }}
-            """
-            
-            try:
-                response = model.generate_content(prompt)
-                print(f"Raw AI Response for {topic} ({count} questions): {response.text[:100]}...")
-                content = response.text.replace('```json', '').replace('```', '').strip()
+                    if topic == 'Data Interpretation (Table/Bar/Line)':
+                        chart_type = random.choice(['table', 'bar', 'line', 'pie'])
+                        di_instruction = f"""
+                        SPECIAL INSTRUCTION FOR DATA INTERPRETATION:
+                        - Create a {chart_type.upper()} CHART.
+                        - Provide structured data in 'common_data' -> 'chart_data'.
+                        - DO NOT describe the data in the question text.
+                        """
+                        
+                        if chart_type == 'table':
+                            di_instruction += "- FOR TABLES: You MUST provide 'headers' (list of strings) and 'rows' (list of lists of strings)."
+                            chart_json_template = """
+                            "chart_data": {
+                                "type": "table", 
+                                "title": "Table Title",
+                                "headers": ["Col1", "Col2"],
+                                "rows": [["Row1Data1", "Row1Data2"], ["Row2Data1", "Row2Data2"]] 
+                            }
+                            """
+                        else:
+                            di_instruction += "- FOR GRAPHS: You MUST provide 'labels' (list of strings) and 'datasets' (list of objects with 'label' and 'data')."
+                            chart_json_template = f"""
+                            "chart_data": {{
+                                "type": "{chart_type}", 
+                                "title": "{chart_type.capitalize()} Chart Title",
+                                "labels": ["Label1", "Label2", "Label3"],
+                                "datasets": [
+                                    {{
+                                        "label": "Series 1",
+                                        "data": [10, 20, 30]
+                                    }}
+                                ]
+                            }}
+                            """
+
+                    prompt = f"""
+                    Act as an expert exam setter for RRB Clerk exams.
+                    Generate a SET of {questions_in_set} multiple-choice questions for '{subject_name}' on the topic '{topic}'.
+                    
+                    CRITICAL INSTRUCTIONS:
+                    1. Topic: {topic}
+                    2. Difficulty Level: {difficulty}.
+                    3. This must be a LINKED SET of questions based on a common Data Block (Graph, Table, Passage, or Puzzle).
+                    4. First, generate the Common Data Block.
+                    5. Then, generate {questions_in_set} questions based on that SAME Data Block.
+                    
+                    {di_instruction}
+                    
+                    SPECIAL INSTRUCTION FOR PUZZLES/SEATING ARRANGEMENT:
+                    - Provide the main puzzle text/conditions in 'common_data' -> 'text'.
+                    
+                    SPECIAL INSTRUCTION FOR READING COMPREHENSION:
+                    - Provide the passage in 'common_data' -> 'text'.
+
+                    Provide the output as a SINGLE JSON OBJECT with this structure:
+                    {{
+                        "common_data": {{
+                            "text": "Passage or Puzzle text here (if applicable)",
+                            {chart_json_template}
+                        }},
+                        "questions": [
+                            {{
+                                "text": "Question text...",
+                                "option_a": "...",
+                                "option_b": "...",
+                                "option_c": "...",
+                                "option_d": "...",
+                                "option_e": "...",
+                                "correct_option": "A",
+                                "explanation": "...",
+                                "topic": "{topic}"
+                            }},
+                            ... ({questions_in_set} questions)
+                        ]
+                    }}
+                    """
+
+                    data_set = generate_json_with_retry(model, prompt)
+                    
+                    if data_set and isinstance(data_set, dict):
+                        common_data = data_set.get('common_data', {})
+                        questions = data_set.get('questions', [])
+                        
+                        # Validate Table Data
+                        if 'chart_data' in common_data and common_data['chart_data']:
+                            cd = common_data['chart_data']
+                            if cd.get('type') == 'table':
+                                if 'rows' not in cd or not isinstance(cd['rows'], list) or len(cd['rows']) == 0:
+                                    print(f"WARNING: Table data missing 'rows' for {topic}. Attempting to fix or skip.")
+                                    if 'rows' not in cd: cd['rows'] = []
+                        
+                        # Flatten: Inject common data into each question
+                        for q in questions:
+                            if 'chart_data' in common_data:
+                                q['chart_data'] = common_data['chart_data']
+                            if 'text' in common_data and common_data['text']:
+                                q['passage'] = common_data['text']
+                                
+                            all_questions.append(q)
+                    else:
+                        print(f"FAILED to generate grouped questions for {topic} Set {set_idx+1} after retries.")
+
+            else:
+                # Standard independent questions generation
+                prompt = f"""
+                Act as an expert exam setter for RRB Clerk exams.
+                Generate {count} UNIQUE and HIGH-QUALITY multiple-choice questions for '{subject_name}' specifically on the topic '{topic}'.
                 
-                start_idx = content.find('[')
-                end_idx = content.rfind(']') + 1
-                if start_idx != -1 and end_idx != -1:
-                    content = content[start_idx:end_idx]
-                    topic_questions = json.loads(content)
+                CRITICAL INSTRUCTIONS:
+                1. Topic: {topic}
+                2. Difficulty Level: {difficulty}.
+                3. Questions must be modeled after actual previous year question papers.
+                4. Ensure NO repetition of question patterns.
+                
+                Provide the output as a JSON array of objects, where each object has:
+                - text: The question text
+                - option_a: Option A
+                - option_b: Option B
+                - option_c: Option C
+                - option_d: Option D
+                - option_e: Option E
+                - correct_option: The correct option letter (A, B, C, D, or E)
+                - explanation: A detailed step-by-step explanation
+                - topic: The specific sub-topic name (use '{topic}')
+                """
+                
+                topic_questions = generate_json_with_retry(model, prompt)
+                
+                if topic_questions and isinstance(topic_questions, list):
                     all_questions.extend(topic_questions)
                 else:
-                    print(f"No JSON array found in response for {topic}. Raw content: {content[:100]}...")
-                
-            except Exception as e:
-                print(f"Error generating questions for topic {topic}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+                    print(f"FAILED to generate questions for {topic} after retries.")
+                    
     else:
         # Fallback to batch generation
         num_batches = math.ceil(num_questions / BATCH_SIZE)
@@ -252,25 +356,12 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             - topic: The specific sub-topic name
             """
 
-            try:
-                response = model.generate_content(prompt)
-                print(f"Raw AI Response (Batch {i+1}): {response.text[:100]}...")
-                content = response.text.replace('```json', '').replace('```', '').strip()
-                
-                start_idx = content.find('[')
-                end_idx = content.rfind(']') + 1
-                if start_idx != -1 and end_idx != -1:
-                    content = content[start_idx:end_idx]
-                    batch_questions = json.loads(content)
-                    all_questions.extend(batch_questions)
-                else:
-                    print(f"No JSON array found in response for batch {i+1}. Raw content: {content[:100]}...")
-                
-            except Exception as e:
-                print(f"Error generating batch {i+1}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+            batch_questions = generate_json_with_retry(model, prompt)
+            
+            if batch_questions and isinstance(batch_questions, list):
+                all_questions.extend(batch_questions)
+            else:
+                print(f"FAILED to generate batch {i+1} after retries.")
             
     return all_questions
 
@@ -300,18 +391,4 @@ def generate_topic_questions(topic_name, num_questions, difficulty='Medium'):
     - explanation: A detailed step-by-step explanation
     """
 
-    try:
-        response = model.generate_content(prompt)
-        content = response.text.replace('```json', '').replace('```', '').strip()
-        
-        start_idx = content.find('[')
-        end_idx = content.rfind(']') + 1
-        if start_idx != -1 and end_idx != -1:
-            content = content[start_idx:end_idx]
-            return json.loads(content)
-        else:
-            return []
-            
-    except Exception as e:
-        print(f"Error generating topic questions: {e}")
-        return []
+    return generate_json_with_retry(model, prompt) or []
