@@ -122,6 +122,16 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             'Reading Comprehension', 'Cloze Test', 'Error Detection', 
             'Sentence Rearrangement (Para Jumbles)', 'Fill in the Blanks', 
             'Word Swap', 'Phrase Replacement'
+        ],
+        'Computer Knowledge': [
+            'Computer Hardware', 'Software & Operating Systems', 'Internet & Networking',
+            'DBMS', 'MS Office (Word, Excel, PowerPoint)', 'Computer Security',
+            'Computer Abbreviations', 'History & Generations'
+        ],
+        'General Awareness': [
+            'Current Affairs (National/International)', 'Banking & Financial Awareness',
+            'Static GK (Parks, Dams, Capitals)', 'Sports', 'Awards & Honours',
+            'Books & Authors', 'Important Days'
         ]
     }
     
@@ -154,6 +164,25 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             'Fill in the Blanks': 3,
             'Word Swap': 1,
             'Phrase Replacement': 1
+        },
+        'Computer Knowledge': {
+            'MS Office (Word, Excel, PowerPoint)': 10,
+            'Internet & Networking': 8,
+            'Computer Hardware': 5,
+            'Software & Operating Systems': 5,
+            'Computer Security': 4,
+            'DBMS': 4,
+            'Computer Abbreviations': 2,
+            'History & Generations': 2
+        },
+        'General Awareness': {
+            'Current Affairs (National/International)': 15,
+            'Banking & Financial Awareness': 10,
+            'Static GK (Parks, Dams, Capitals)': 5,
+            'Sports': 3,
+            'Awards & Honours': 3,
+            'Books & Authors': 2,
+            'Important Days': 2
         }
     }
 

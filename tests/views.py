@@ -38,13 +38,49 @@ EXAM_CONFIGURATIONS = {
                     'name': 'Numerical Ability',
                     'subject': 'Quantitative Aptitude',
                     'questions': 40,
-                    'duration': 20  # Section-specific duration in minutes
+                    'duration': 20
                 },
                 {
                     'name': 'Reasoning Ability',
                     'subject': 'Reasoning Ability',
                     'questions': 40,
-                    'duration': 25  # Section-specific duration in minutes
+                    'duration': 25
+                }
+            ]
+        },
+        'Mains': {
+            'duration': 120,
+            'negative_marks': 0.25,
+            'sections': [
+                {
+                    'name': 'Reasoning Ability',
+                    'subject': 'Reasoning Ability',
+                    'questions': 40,
+                    'duration': 30
+                },
+                {
+                    'name': 'Quantitative Aptitude',
+                    'subject': 'Quantitative Aptitude',
+                    'questions': 40,
+                    'duration': 30
+                },
+                {
+                    'name': 'General Awareness',
+                    'subject': 'General Awareness',
+                    'questions': 40,
+                    'duration': 15
+                },
+                {
+                    'name': 'English Language',
+                    'subject': 'English Language',
+                    'questions': 40,
+                    'duration': 30
+                },
+                {
+                    'name': 'Computer Knowledge',
+                    'subject': 'Computer Knowledge',
+                    'questions': 40,
+                    'duration': 15
                 }
             ]
         }
