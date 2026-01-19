@@ -554,14 +554,12 @@ Contributions are welcome! Areas where you can help:
 ---
 
 ## 📧 Contact
-
 **Project Maintainer**
 
 - Email: ulageshofficial@gmail.com
 - LinkedIn: [linkedin.com/in/ulageshwaran](https://linkedin.com/in/ulageshwaran)
 - GitHub: [@ulageshwaran](https://github.com/ulageshwaran)
 ---
-
 <div align="center">
   
   **Built with 🧠 AI and ❤️ for Banking Exam Aspirants**
