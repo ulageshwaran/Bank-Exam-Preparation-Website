@@ -146,3 +146,5 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = "google/gemini-2.0-flash-exp:free" # Default to a free/cheap workable model

@@ -1,67 +1,128 @@
-import google.generativeai as genai
+
+from openai import OpenAI
 import os
 import json
 from django.conf import settings
 import random
+import re
 import math
+import time
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
+def get_client():
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key:
+        print("WARNING: OPENROUTER_API_KEY not found.")
+        return None
+    return OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
 
-def get_model():
-    # User requested Pro model. 3.0 has quota issues, 1.5 is 404. Using 2.0 Pro Exp.
-    return genai.GenerativeModel('gemini-2.0-flash')
+def extract_json_substring(text):
+    """
+    Extracts the first valid JSON object or array from the text using stack-based matching.
+    """
+    text = text.strip()
+    stack = []
+    start_index = -1
+    
+    # Locate the first opening brace/bracket
+    for i, char in enumerate(text):
+        if char in '{[':
+            start_index = i
+            stack.append(char)
+            break
+            
+    if start_index == -1:
+        return None
 
-def generate_json_with_retry(model, prompt, retries=3):
-    """Generates content and parses JSON with retries."""
+    # Continue from there
+    for i in range(start_index + 1, len(text)):
+        char = text[i]
+        if char in '{[':
+            stack.append(char)
+        elif char in '}]':
+            if not stack:
+                continue # imbalance or previous closure?
+            
+            last = stack[-1]
+            if (char == '}' and last == '{') or (char == ']' and last == '['):
+                stack.pop()
+                if not stack:
+                    # Found the matching closer for the top-level element
+                    return text[start_index : i+1]
+            else:
+                # Mismatched nesting (e.g. { ] ) - invalid JSON structure
+                return None
+                
+    return None
+
+def generate_json_with_retry(client, prompt, retries=3):
+    """Generates content and parses JSON with retries using OpenRouter."""
+    if not client:
+        return None
+        
+    model_name = getattr(settings, 'OPENROUTER_MODEL', "google/gemini-2.0-flash-exp:free")
+
     for attempt in range(retries):
         try:
-            response = model.generate_content(prompt)
-            content = response.text.replace('```json', '').replace('```', '').strip()
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+            )
+            content = response.choices[0].message.content
             
-            # Try to find the first JSON object or array
-            start_idx = -1
-            if '{' in content:
-                start_idx = content.find('{')
-            if '[' in content:
-                idx = content.find('[')
-                if start_idx == -1 or (idx != -1 and idx < start_idx):
-                    start_idx = idx
+            # 1. Cleaner: Remove markdown code blocks
+            content_clean = content.replace('```json', '').replace('```', '').strip()
             
-            if start_idx != -1:
-                content = content[start_idx:]
+            # 2. Try Standard Decoding first (fastest)
+            try:
+                # strict=False allows control characters
+                obj, _ = json.JSONDecoder(strict=False).raw_decode(content_clean)
+                return obj
+            except json.JSONDecodeError:
+                pass
+            
+            # 3. Smart Extraction (Stack based)
+            extracted_json = extract_json_substring(content_clean)
+            if extracted_json:
                 try:
-                    # strict=False allows control characters like newlines in strings
-                    obj, _ = json.JSONDecoder(strict=False).raw_decode(content)
-                    return obj
+                    return json.loads(extracted_json, strict=False)
                 except json.JSONDecodeError:
-                    # Fallback to simple slicing if raw_decode fails (e.g. incomplete JSON)
+                    pass
+            
+            # 4. Fallback: Naive slicing (if stack failed due to malformed chars)
+            if '{' in content_clean:
+                try:
+                    start = content_clean.find('{')
+                    end = content_clean.rfind('}') + 1
+                    # Try cleaning trailing commas which is a common AI error
+                    clean_slice = re.sub(r',(\s*[}\]])', r'\1', content_clean[start:end])
+                    return json.loads(clean_slice, strict=False)
+                except:
+                    pass
+            if '[' in content_clean:
+                try:
+                    start = content_clean.find('[')
+                    end = content_clean.rfind(']') + 1
+                    clean_slice = re.sub(r',(\s*[}\]])', r'\1', content_clean[start:end])
+                    return json.loads(clean_slice, strict=False)
+                except:
                     pass
 
-            # Fallback: Try manual slicing if raw_decode failed
-            if content.startswith('{') or content.find('{') != -1:
-                start_idx = content.find('{')
-                end_idx = content.rfind('}') + 1
-                if start_idx != -1 and end_idx != -1:
-                    return json.loads(content[start_idx:end_idx], strict=False)
-            
-            if content.startswith('[') or content.find('[') != -1:
-                start_idx = content.find('[')
-                end_idx = content.rfind(']') + 1
-                if start_idx != -1 and end_idx != -1:
-                    return json.loads(content[start_idx:end_idx], strict=False)
-            
-            print(f"WARNING: No valid JSON found in attempt {attempt+1}")
+            print(f"WARNING: No valid JSON found in attempt {attempt+1}. Content snippet: {content_clean[:200]}...")
             
         except Exception as e:
             print(f"Error in attempt {attempt+1}: {e}")
-            import traceback
-            traceback.print_exc()
             
     return None
 
 def generate_question(topic_name, difficulty):
-    model = get_model()
-    if not model:
+    client = get_client()
+    if not client:
         return None
 
     prompt = f"""
@@ -78,12 +139,14 @@ def generate_question(topic_name, difficulty):
     - explanation: A detailed explanation of the solution
     """
 
-    return generate_json_with_retry(model, prompt)
+    return generate_json_with_retry(client, prompt)
 
 def explain_answer(question_text, user_answer, correct_answer):
-    model = get_model()
-    if not model:
+    client = get_client()
+    if not client:
         return "AI explanation unavailable (API Key missing)."
+
+    model_name = getattr(settings, 'OPENROUTER_MODEL', "google/gemini-2.0-flash-exp:free")
 
     prompt = f"""
     Question: {question_text}
@@ -95,15 +158,21 @@ def explain_answer(question_text, user_answer, correct_answer):
     """
     
     try:
-        response = model.generate_content(prompt)
-        return response.text
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
     except Exception as e:
         return f"Error generating explanation: {e}"
 
 def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
     print(f"DEBUG: generate_test_questions called for {subject_name}, {num_questions}")
-    model = get_model()
-    if not model:
+    client = get_client()
+    if not client:
         return []
 
     # Define sub-topics for variety
@@ -157,13 +226,13 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             'Input-Output': 2
         },
         'English Language': {
-            'Reading Comprehension': 10,
+            'Reading Comprehension': 15,
             'Cloze Test': 5,
             'Error Detection': 5,
             'Sentence Rearrangement (Para Jumbles)': 5,
-            'Fill in the Blanks': 3,
-            'Word Swap': 1,
-            'Phrase Replacement': 1
+            'Fill in the Blanks': 5,
+            'Word Swap': 3,
+            'Phrase Replacement': 2
         },
         'Computer Knowledge': {
             'MS Office (Word, Excel, PowerPoint)': 10,
@@ -186,7 +255,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
         }
     }
 
-    BATCH_SIZE = 5
+    BATCH_SIZE = 5 # Reduced from 20 to prevent JSON truncation/parsing errors
     all_questions = []
     
     # Check if we have a specific distribution for this subject
@@ -212,6 +281,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                 num_sets = math.ceil(count / 5)
                 
                 for set_idx in range(num_sets):
+                    time.sleep(4) # Rate limit protection
                     questions_in_set = min(5, count - (set_idx * 5))
                     if questions_in_set <= 0: break
 
@@ -264,6 +334,8 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                     3. This must be a LINKED SET of questions based on a common Data Block (Graph, Table, Passage, or Puzzle).
                     4. First, generate the Common Data Block.
                     5. Then, generate {questions_in_set} questions based on that SAME Data Block.
+                    6. VERIFY YOUR ANSWERS: Ensure option A-E are distinct and the 'correct_option' is logically derivable from the data.
+                    7. EXPLANATION: Provide a step-by-step calculation or reasoning for the correct option.
                     
                     {di_instruction}
                     
@@ -288,7 +360,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                                 "option_d": "...",
                                 "option_e": "...",
                                 "correct_option": "A",
-                                "explanation": "...",
+                                "explanation": "Step 1: ... Step 2: ... Final Answer: ...",
                                 "topic": "{topic}"
                             }},
                             ... ({questions_in_set} questions)
@@ -296,7 +368,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                     }}
                     """
 
-                    data_set = generate_json_with_retry(model, prompt)
+                    data_set = generate_json_with_retry(client, prompt)
                     
                     if data_set and isinstance(data_set, dict):
                         common_data = data_set.get('common_data', {})
@@ -316,7 +388,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                                 q['chart_data'] = common_data['chart_data']
                             if 'text' in common_data and common_data['text']:
                                 q['passage'] = common_data['text']
-                                
+                            
                             all_questions.append(q)
                     else:
                         print(f"FAILED to generate grouped questions for {topic} Set {set_idx+1} after retries.")
@@ -332,6 +404,8 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                 2. Difficulty Level: {difficulty}.
                 3. Questions must be modeled after actual previous year question papers.
                 4. Ensure NO repetition of question patterns.
+                5. ACCURACY CHECK: Double-check the calculation/reasoning. The 'correct_option' MUST be correct.
+                6. OUTPUT FORMAT: Raw JSON only. NO markdown blocks (```json). NO intro/outro text.
                 
                 Provide the output as a JSON array of objects, where each object has:
                 - text: The question text
@@ -341,11 +415,11 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
                 - option_d: Option D
                 - option_e: Option E
                 - correct_option: The correct option letter (A, B, C, D, or E)
-                - explanation: A detailed step-by-step explanation
+                - explanation: A detailed step-by-step explanation proving the correct option.
                 - topic: The specific sub-topic name (use '{topic}')
                 """
                 
-                topic_questions = generate_json_with_retry(model, prompt)
+                topic_questions = generate_json_with_retry(client, prompt)
                 
                 if topic_questions and isinstance(topic_questions, list):
                     all_questions.extend(topic_questions)
@@ -357,6 +431,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
         num_batches = math.ceil(num_questions / BATCH_SIZE)
         
         for i in range(num_batches):
+            time.sleep(4) # Rate limit protection
             current_batch_size = min(BATCH_SIZE, num_questions - len(all_questions))
             
             available_topics = sub_topics_map.get(subject_name, ['General'])
@@ -372,6 +447,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             2. Difficulty Level: {difficulty}.
             3. Questions must be modeled after actual previous year question papers (2020-2024).
             4. Ensure NO repetition of question patterns.
+            5. OUTPUT FORMAT: Raw JSON only. NO markdown blocks (```json). NO intro/outro text.
             
             Provide the output as a JSON array of objects, where each object has:
             - text: The question text (include directions if needed)
@@ -385,7 +461,7 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
             - topic: The specific sub-topic name
             """
 
-            batch_questions = generate_json_with_retry(model, prompt)
+            batch_questions = generate_json_with_retry(client, prompt)
             
             if batch_questions and isinstance(batch_questions, list):
                 all_questions.extend(batch_questions)
@@ -395,8 +471,8 @@ def generate_test_questions(subject_name, num_questions, difficulty='Medium'):
     return all_questions
 
 def generate_topic_questions(topic_name, num_questions, difficulty='Medium'):
-    model = get_model()
-    if not model:
+    client = get_client()
+    if not client:
         return []
 
     prompt = f"""
@@ -408,6 +484,7 @@ def generate_topic_questions(topic_name, num_questions, difficulty='Medium'):
     2. Difficulty Level: {difficulty}.
     3. Questions must be modeled after actual previous year question papers.
     4. Ensure NO repetition of question patterns.
+    5. OUTPUT FORMAT: Raw JSON only. NO markdown blocks (```json). NO intro/outro text.
     
     Provide the output as a JSON array of objects, where each object has:
     - text: The question text (include directions if needed)
@@ -420,4 +497,4 @@ def generate_topic_questions(topic_name, num_questions, difficulty='Medium'):
     - explanation: A detailed step-by-step explanation
     """
 
-    return generate_json_with_retry(model, prompt) or []
+    return generate_json_with_retry(client, prompt) or []

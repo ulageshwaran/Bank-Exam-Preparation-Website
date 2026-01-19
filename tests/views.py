@@ -38,49 +38,62 @@ EXAM_CONFIGURATIONS = {
                     'name': 'Numerical Ability',
                     'subject': 'Quantitative Aptitude',
                     'questions': 40,
-                    'duration': 20
+                    'duration': 20, # Section-specific duration
+                    'positive_marks': 1.0,
+                    'negative_marks': 0.25
                 },
                 {
                     'name': 'Reasoning Ability',
                     'subject': 'Reasoning Ability',
                     'questions': 40,
-                    'duration': 25
+                    'duration': 25, # Section-specific duration
+                    'positive_marks': 1.0,
+                    'negative_marks': 0.25
                 }
             ]
         },
         'Mains': {
             'duration': 120,
-            'negative_marks': 0.25,
             'sections': [
                 {
                     'name': 'Reasoning Ability',
                     'subject': 'Reasoning Ability',
                     'questions': 40,
-                    'duration': 30
+                    'duration': 30,
+                    'positive_marks': 1.25,
+                    'negative_marks': 0.25
                 },
                 {
                     'name': 'Quantitative Aptitude',
                     'subject': 'Quantitative Aptitude',
                     'questions': 40,
-                    'duration': 30
+                    'duration': 30,
+                    'positive_marks': 1.25,
+                    'negative_marks': 0.25
                 },
                 {
                     'name': 'General Awareness',
                     'subject': 'General Awareness',
                     'questions': 40,
-                    'duration': 15
+                    'duration': 15,
+                    'positive_marks': 1.0,
+                    'negative_marks': 0.25
                 },
                 {
                     'name': 'English Language',
                     'subject': 'English Language',
                     'questions': 40,
-                    'duration': 30
+                    'duration': 30,
+                    'positive_marks': 1.0,
+                    'negative_marks': 0.25
                 },
                 {
                     'name': 'Computer Knowledge',
                     'subject': 'Computer Knowledge',
                     'questions': 40,
-                    'duration': 15
+                    'duration': 15,
+                    'positive_marks': 0.5,
+                    'negative_marks': 0.25
                 }
             ]
         }
@@ -323,27 +336,45 @@ def take_test(request, test_id):
         skipped = 0
         total_questions = test_questions.count()
         
-        # Get exam configuration for negative marking
+        # Pre-calculate section scoring maps if available
         config = EXAM_CONFIGURATIONS.get(test.exam_type, {}).get(test.stage, {})
-        negative_mark = config.get('negative_marks', 0.25)
+        section_scoring_map = {} # section_name -> {positive, negative}
+        if 'sections' in config:
+            for sec_conf in config['sections']:
+                section_scoring_map[sec_conf['name']] = {
+                    'positive': sec_conf.get('positive_marks', 1.0),
+                    'negative': sec_conf.get('negative_marks', 0.25)
+                }
         
+        # Fallback globals if not in section map
+        global_neg = config.get('negative_marks', 0.25)
+
         # Create Attempt
         attempt = UserTestAttempt.objects.create(
             user=request.user,
             mock_test=test
         )
-        
+
         for tq in test_questions:
             selected_option = request.POST.get(f'question_{tq.question.id}')
             is_correct = False
             
+            # Determine marks for this specific question
+            pos_mark = 1.0
+            neg_mark = global_neg
+            
+            if tq.section and tq.section.section_name in section_scoring_map:
+                scoring = section_scoring_map[tq.section.section_name]
+                pos_mark = scoring['positive']
+                neg_mark = scoring['negative']
+            
             if selected_option:
                 if selected_option == tq.question.correct_option:
-                    score += 1.0
+                    score += pos_mark
                     correct += 1
                     is_correct = True
                 else:
-                    score -= negative_mark # Configurable negative marking
+                    score -= neg_mark # Section specific negative marking
                     wrong += 1
             else:
                 skipped += 1
